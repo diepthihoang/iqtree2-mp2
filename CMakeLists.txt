@@ -233,6 +233,12 @@ elseif (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         SET(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
     endif()
+    
+    # Diep: clang under Linux require -I to omp.h
+    if (UNIX)
+        set(CMAKE_CXX_FLAGS "${CXXFLAGS} ${CMAKE_CXX_FLAGS}")
+        set(CMAKE_C_FLAGS "${CFLAGS} ${CMAKE_C_FLAGS}")
+    endif()
 
     #remove -rdynamic for Clang under Linux
     if (UNIX AND IQTREE_FLAGS MATCHES "static")

@@ -51,6 +51,7 @@
 #include "pda/circularnetwork.h"
 #include "tree/mtreeset.h"
 #include "tree/mexttree.h"
+#include "tree/mp2.h"
 #include "ncl/ncl.h"
 #include "nclextra/msetsblock.h"
 #include "nclextra/myreader.h"
@@ -2663,6 +2664,8 @@ int main(int argc, char *argv[]) {
         generateRandomTree(params);
     } else if (params.do_pars_multistate) {
         doParsMultiState(params);
+    } else if(params.spr_unit_test > 0){ // Diep: 2021-05-03
+    	doSPRUnitTest(params);
     } else if (params.rf_dist_mode != 0) {
         computeRFDist(params);
     } else if (params.test_input != TEST_NONE) {

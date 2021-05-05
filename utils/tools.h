@@ -2236,6 +2236,11 @@ public:
     /** compression level to use when writing (.mldist) distance matrix files */
     int    dist_compression_level;
     
+    /**
+     * Diep: data members for MPBoot2 & SPR unit test
+     */
+    int spr_unit_test; // 0: no test, 1: pll, 2: iqtree2
+
 };
 
 /**

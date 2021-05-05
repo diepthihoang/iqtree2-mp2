@@ -874,6 +874,8 @@ void parseArg(int argc, char *argv[], Params &params) {
     params.clock_stddev = -1.0;
     params.date_outlier = -1.0;
     
+    params.spr_unit_test = 0; // Diep: by default, test does not run
+
     params.matrix_exp_technique = MET_EIGEN3LIB_DECOMPOSITION;
 
 	if (params.nni5) {
@@ -3375,6 +3377,14 @@ void parseArg(int argc, char *argv[], Params &params) {
             }
             if (arg=="-u2c_nni5") {
                 params.u2c_nni5 = true;
+                continue;
+            }
+            if (arg=="--spr-unit-test") {
+                ++cnt;
+                if (cnt >= argc) {
+                    throw "Use --spr-unit-test <0|1|2> // 0: no test, 1: pll, 2: iqtree2";
+                }
+                params.spr_unit_test = convert_int(argv[cnt]);
                 continue;
             }
             if (arg=="-nstep" || arg=="--nstep") {
