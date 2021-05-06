@@ -874,7 +874,7 @@ void parseArg(int argc, char *argv[], Params &params) {
     params.clock_stddev = -1.0;
     params.date_outlier = -1.0;
     
-    params.spr_unit_test = 0; // Diep: by default, test does not run
+    params.unit_test_pars_spr = 0; // Diep: by default, test does not run
 
     params.matrix_exp_technique = MET_EIGEN3LIB_DECOMPOSITION;
 
@@ -3379,12 +3379,20 @@ void parseArg(int argc, char *argv[], Params &params) {
                 params.u2c_nni5 = true;
                 continue;
             }
-            if (arg=="--spr-unit-test") {
+            if (arg=="--test-pars-spr") {
                 ++cnt;
                 if (cnt >= argc) {
-                    throw "Use --spr-unit-test <0|1|2> // 0: no test, 1: pll, 2: iqtree2";
+                    throw "Use --test-pars-spr <0|1|2> // 0: no test, 1: pll, 2: iqtree2";
                 }
-                params.spr_unit_test = convert_int(argv[cnt]);
+                params.unit_test_pars_spr = convert_int(argv[cnt]);
+                continue;
+            }
+            if (arg=="--test-pars-score") {
+                ++cnt;
+                if (cnt >= argc) {
+                    throw "Use --test-pars-score <0|1|2> // 0: no test, 1: pll, 2: iqtree2";
+                }
+                params.unit_test_pars_score = convert_int(argv[cnt]);
                 continue;
             }
             if (arg=="-nstep" || arg=="--nstep") {

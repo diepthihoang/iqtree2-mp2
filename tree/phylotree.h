@@ -2586,8 +2586,9 @@ public:
     
     /** report that a task is complete*/
     virtual void doneProgress();
-    
-protected:
+
+// Diep 2021-05-06: Loosen access to PLL data structure to implement unit test    
+public:
     /**
      *  Instance of the phylogenetic likelihood library. This is basically the tree data strucutre in RAxML
      */
@@ -2608,6 +2609,7 @@ protected:
      */
     partitionList * pllPartitions;
 
+protected:
     /**
      *  is the subtree distance matrix need to be computed or updated
      */

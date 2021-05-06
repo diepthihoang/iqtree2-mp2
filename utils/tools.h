@@ -2237,9 +2237,10 @@ public:
     int    dist_compression_level;
     
     /**
-     * Diep: data members for MPBoot2 & SPR unit test
+     * Diep: data members for MPBoot2 & parsimony unit tests
      */
-    int spr_unit_test; // 0: no test, 1: pll, 2: iqtree2
+    int unit_test_pars_score; // 0: no test, 1: pll, 2: iqtree2
+    int unit_test_pars_spr; // 0: no test, 1: pll, 2: iqtree2
 
 };
 

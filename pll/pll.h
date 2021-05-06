@@ -128,6 +128,7 @@ extern "C" {
 #define PLL_BADREAR                             -1
 
 #define PLL_NUM_BRANCHES                        16
+//#define PLL_NUM_BRANCHES                        1 // Diep: 2021-05-06
 
 #define PLL_TRUE                                1
 #define PLL_FALSE                               0
@@ -1654,7 +1655,8 @@ nodeptr pllGetRandomSubtree(pllInstance *);
 extern void pllFreeParsimonyDataStructures(pllInstance *tr, partitionList *pr);
 void pllDestroyInstance (pllInstance *);
 extern void pllGetAncestralState(pllInstance *tr, partitionList *pr, nodeptr p, double * outProbs, char * outSequence);
-unsigned int pllEvaluateParsimony(pllInstance *tr, partitionList *pr, nodeptr p, pllBoolean full, pllBoolean perSiteScores);
+extern unsigned int pllEvaluateParsimony(pllInstance *tr, partitionList *pr, nodeptr p, pllBoolean full, pllBoolean perSiteScores);
+extern unsigned int pllEvaluateParsimonyFast(pllInstance *tr, partitionList *pr, nodeptr p, pllBoolean full);
 void pllInitParsimonyStructures(pllInstance *tr, partitionList *pr, pllBoolean perSiteScores);
 
 /* rearrange functions (NNI and SPR) */

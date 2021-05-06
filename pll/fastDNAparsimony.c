@@ -44,8 +44,8 @@
 #include <immintrin.h>
 
 #define INTS_PER_VECTOR 16
-//#define LONG_INTS_PER_VECTOR 8
-#define LONG_INTS_PER_VECTOR (64/sizeof(long))
+// #define LONG_INTS_PER_VECTOR 8 // Diep tried 2021-05-06
+#define LONG_INTS_PER_VECTOR (64/sizeof(long)) // Diep 2021-05-06
 #define INT_TYPE __m512i
 #define CAST double*
 #define SET_ALL_BITS_ONE _mm512_set1_epi32(0xFFFFFFFF)
@@ -63,8 +63,8 @@
 #include <pmmintrin.h>
 
 #define INTS_PER_VECTOR 8
-//#define LONG_INTS_PER_VECTOR 4
-#define LONG_INTS_PER_VECTOR (32/sizeof(long))
+// #define LONG_INTS_PER_VECTOR 4 //  2021-05-06
+#define LONG_INTS_PER_VECTOR (32/sizeof(long)) // Diep 2021-05-06
 #define INT_TYPE __m256d
 #define CAST double*
 //#define SET_ALL_BITS_ONE (__m256d)_mm256_set_epi32(0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF)
@@ -84,11 +84,11 @@
   
 #define INTS_PER_VECTOR 4
 #ifdef __i386__
-//#define LONG_INTS_PER_VECTOR 4
-#define LONG_INTS_PER_VECTOR (16/sizeof(long))
+#define LONG_INTS_PER_VECTOR 4 // Diep 2021-05-06
+//#define LONG_INTS_PER_VECTOR (16/sizeof(long)) //  2021-05-06
 #else
-//#define LONG_INTS_PER_VECTOR 2
-#define LONG_INTS_PER_VECTOR (16/sizeof(long))
+// #define LONG_INTS_PER_VECTOR 2 // Diep 2021-05-06
+#define LONG_INTS_PER_VECTOR (16/sizeof(long)) // Diep 2021-05-06
 #endif
 #define INT_TYPE __m128i
 #define CAST __m128i*
@@ -522,6 +522,8 @@ static void newviewParsimonyIterativeFast(pllInstance *tr, partitionList *pr)
         }
 
       tr->parsimonyScore[pNumber] = totalScore + tr->parsimonyScore[rNumber] + tr->parsimonyScore[qNumber];      
+      printf("\ntr->parsimonyScore[%d]=%d+parsimonyScore[%d]+parsimonyScore[%d]=%d", 
+        pNumber, totalScore, rNumber, qNumber, tr->parsimonyScore[pNumber]);
     }
 }
 
@@ -581,8 +583,9 @@ static unsigned int evaluateParsimonyIterativeFast(pllInstance *tr, partitionLis
                  
                  sum += vectorPopcount(v_N);
                  
-                 if(sum >= bestScore)
-                   return sum;                         
+                // Diep 2021-05-06
+                //  if(sum >= bestScore)
+                //    return sum;                         
                }
            }
            break;
@@ -610,9 +613,9 @@ static unsigned int evaluateParsimonyIterativeFast(pllInstance *tr, partitionLis
                  v_N = VECTOR_AND_NOT(v_N, allOne);
                  
                  sum += vectorPopcount(v_N);
-                 
-                 if(sum >= bestScore)            
-                   return sum;          
+                // Diep 2021-05-06 
+                //  if(sum >= bestScore)            
+                //    return sum;          
                }                 
            }
            break;
@@ -646,9 +649,10 @@ static unsigned int evaluateParsimonyIterativeFast(pllInstance *tr, partitionLis
                   v_N = VECTOR_AND_NOT(v_N, allOne);
                   
                   sum += vectorPopcount(v_N);          
-                  
-                  if(sum >= bestScore)      
-                    return sum;                        
+                
+                // Diep 2021-05-06  
+                //   if(sum >= bestScore)      
+                //     return sum;                        
                 }
            }
            break;
@@ -684,15 +688,17 @@ static unsigned int evaluateParsimonyIterativeFast(pllInstance *tr, partitionLis
                  v_N = VECTOR_AND_NOT(v_N, allOne);
                  
                  sum += vectorPopcount(v_N);           
-                 
-                 if(sum >= bestScore)         
-                   return sum;                 
+                
+                // Diep 2021-05-06 
+                //  if(sum >= bestScore)         
+                //    return sum;                 
                }
            }
          }
     }
+    printf("\nsum=%d", sum);
   
-  return sum;
+    return sum;
 }
 
 
@@ -898,6 +904,8 @@ static void newviewParsimonyIterativeFast(pllInstance *tr, partitionList * pr)
         }
 
       tr->parsimonyScore[pNumber] = totalScore + tr->parsimonyScore[rNumber] + tr->parsimonyScore[qNumber];      
+      printf("\ntr->parsimonyScore[%d]=%d+parsimonyScore[%d]+parsimonyScore[%d]=%d", 
+        pNumber, totalScore, rNumber, qNumber, tr->parsimonyScore[pNumber]);
     }
 }
 
@@ -953,9 +961,10 @@ static unsigned int evaluateParsimonyIterativeFast(pllInstance *tr, partitionLis
                   t_N = ~(t_A | t_C);
 
                   sum += ((unsigned int) __builtin_popcount(t_N));
-                 
-                 if(sum >= bestScore)
-                   return sum;                         
+                
+                // Diep 2021-05-06
+                //  if(sum >= bestScore)
+                //    return sum;                         
                }
            }
            break;
@@ -987,8 +996,9 @@ static unsigned int evaluateParsimonyIterativeFast(pllInstance *tr, partitionLis
 
                   sum += ((unsigned int) __builtin_popcount(t_N));
                  
-                 if(sum >= bestScore)            
-                   return sum;          
+                 // Diep 2021-05-06
+                //  if(sum >= bestScore)            
+                //    return sum;          
                }                 
            }
            break;
@@ -1019,9 +1029,10 @@ static unsigned int evaluateParsimonyIterativeFast(pllInstance *tr, partitionLis
                   t_N = ~t_N;
 
                   sum += ((unsigned int) __builtin_popcount(t_N));
-                  
-                  if(sum >= bestScore)      
-                    return sum;                        
+                
+                // Diep 2021-05-06
+                //   if(sum >= bestScore)      
+                //     return sum;                        
                 }
            }
            break;
@@ -1054,14 +1065,16 @@ static unsigned int evaluateParsimonyIterativeFast(pllInstance *tr, partitionLis
                   t_N = ~t_N;
 
                   sum += ((unsigned int) __builtin_popcount(t_N));
-                                                 
-                 if(sum >= bestScore)                     
-                   return sum;                     
+
+                // Diep 2021-05-06                                                 
+                //  if(sum >= bestScore)                     
+                //    return sum;                     
                }                     
            }
          }
     }
-  
+
+  printf("\nsum=%d", sum);
   return sum;
 }
 
@@ -1844,15 +1857,26 @@ void allocateParsimonyDataStructures(pllInstance *tr, partitionList *pr)
 
 void pllFreeParsimonyDataStructures(pllInstance *tr, partitionList *pr)
 {
-  size_t 
+    size_t 
     model;
 
-  rax_free(tr->parsimonyScore);
-  
-  for(model = 0; model < (size_t) pr->numberOfPartitions; ++model)
-    rax_free(pr->partitionData[model]->parsVect);
-  
-  rax_free(tr->ti);
+    // Diep: 2021-05-06, check NULL before deallocate
+    if(tr->parsimonyScore != NULL){
+        rax_free(tr->parsimonyScore);
+        tr->parsimonyScore = NULL;
+    }
+
+    for(model = 0; model < (size_t) pr->numberOfPartitions; ++model)
+        if(pr->partitionData[model]->parsVect != NULL){
+            rax_free(pr->partitionData[model]->parsVect);
+            pr->partitionData[model]->parsVect = NULL;
+        }
+    
+
+    if(tr->ti != NULL){
+        rax_free(tr->ti);
+        tr->ti = NULL;
+    }
 }
 
 
@@ -2048,4 +2072,42 @@ int pllOptimizeWithParsimonySPR(pllInstance * tr, partitionList * pr, int maxSpr
   pllFreeParsimonyDataStructures(tr, pr); //<-- This was missing.
 
   return maxSprIterations - iterationsToGo; //Return # of iterations 
+}
+
+
+/*
+Diep 2021-05-06
+Create alike pllEvaluateParsimony from parsimony.c because CMakeLists currently does not contain parsimony.c
+*/
+unsigned int pllEvaluateParsimonyFast(pllInstance *tr, partitionList *pr, nodeptr p, pllBoolean full)
+{
+  volatile unsigned int result;
+  nodeptr q = p->back;
+  int
+    *ti = tr->ti,
+    counter = 4;
+  
+  ti[1] = p->number;
+  ti[2] = q->number;
+
+  if(full)
+    {
+      if(p->number > tr->mxtips)
+        computeTraversalInfoParsimony(p, ti, &counter, tr->mxtips, full);
+      if(q->number > tr->mxtips)
+        computeTraversalInfoParsimony(q, ti, &counter, tr->mxtips, full); 
+    }
+  else
+    {
+      if(p->number > tr->mxtips && !p->xPars)
+        computeTraversalInfoParsimony(p, ti, &counter, tr->mxtips, full);
+      if(q->number > tr->mxtips && !q->xPars)
+        computeTraversalInfoParsimony(q, ti, &counter, tr->mxtips, full); 
+    }
+
+  ti[0] = counter;
+
+  result = evaluateParsimonyIterativeFast(tr, pr);
+
+  return result;
 }

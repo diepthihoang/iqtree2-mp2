@@ -2664,8 +2664,10 @@ int main(int argc, char *argv[]) {
         generateRandomTree(params);
     } else if (params.do_pars_multistate) {
         doParsMultiState(params);
-    } else if(params.spr_unit_test > 0){ // Diep: 2021-05-03
-    	doSPRUnitTest(params);
+    } else if(params.unit_test_pars_spr > 0){ // Diep: 2021-05-03
+    	runUnitTestParsimonySPR(params);
+    } else if(params.unit_test_pars_score > 0){ // Diep: 2021-05-03
+    	runUnitTestParsimonyScore(params);
     } else if (params.rf_dist_mode != 0) {
         computeRFDist(params);
     } else if (params.test_input != TEST_NONE) {

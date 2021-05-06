@@ -1971,7 +1971,11 @@ static void pllTreeInitDefaults (pllInstance * tr, int tips)
 
 
   /* TODO: The line below was commented... why? */
-  tr->fracchange = -1;
+   /**
+    * Diep 2021-05-06:
+    * UNCOMMENTING THIS CAUSES A VERY DIFFICULT TO DETECT BUG WHILE CALLING pllTreeToNewick
+    */
+//   tr->fracchange = -1;
   tr->rawFracchange = -1;
 
   for (i = 1; i <= tips; ++ i)

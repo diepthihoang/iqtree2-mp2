@@ -129,7 +129,10 @@ parse_newick (pllStack ** stack, int * inp)
             prev_token.tokenType != PLL_TOKEN_UNKNOWN &&
             prev_token.tokenType != PLL_TOKEN_COMMA) return (0);
         if (!item) item = (pllNewickNodeInfo *) rax_calloc (1, sizeof (pllNewickNodeInfo));
-        item->name = my_strndup (token.lexeme, token.len);
+        //item->name = strndup (token.lexeme, token.len);
+        item->name = (char *) rax_malloc ((token.len + 1) * sizeof (char));
+        strncpy (item->name, token.lexeme, token.len);
+        item->name[token.len] = 0;
 
         item_active = 1;
         item->depth = depth;
@@ -152,7 +155,10 @@ parse_newick (pllStack ** stack, int * inp)
         if (!item) item = (pllNewickNodeInfo *) rax_calloc (1, sizeof (pllNewickNodeInfo));
         if (prev_token.tokenType == PLL_TOKEN_COLON)
          {
-           item->branch = my_strndup (token.lexeme, token.len);
+           //item->branch = strndup (token.lexeme, token.len);
+           item->branch = (char *) rax_malloc ((token.len + 1) * sizeof (char));
+           strncpy (item->branch, token.lexeme, token.len);
+           item->branch[token.len] = 0;
          }
         else
          {
@@ -160,7 +166,10 @@ parse_newick (pllStack ** stack, int * inp)
                prev_token.tokenType == PLL_TOKEN_OPAREN ||
                prev_token.tokenType == PLL_TOKEN_UNKNOWN) item->leaf = 1;
            //if (prev_token.tokenType != PLL_TOKEN_UNKNOWN) ++ indent;
-           item->name = my_strndup (token.lexeme, token.len);
+           //item->name = strndup (token.lexeme, token.len);
+           item->name = (char *) rax_malloc ((token.len + 1) * sizeof (char));
+           strncpy (item->name, token.lexeme, token.len);
+           item->name[token.len] = 0;
          }
         item_active = 1;
         item->depth = depth;
@@ -503,7 +512,7 @@ pllNewickParseString (const char * newick)
   
   t = (pllNewickTree *) rax_calloc (1, sizeof (pllNewickTree));
 
-  n = (int)(strlen(newick));
+  n = strlen (newick);
 
   init_lexan (newick, n);
   input = get_next_symbol();

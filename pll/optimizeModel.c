@@ -2601,6 +2601,7 @@ static void optimizeRateCategories(pllInstance *tr, partitionList *pr, int _maxC
     @param tr
       PLL instance
   */
+
 void resetBranches(pllInstance *tr)
 {
   nodeptr  p, q;
@@ -2627,6 +2628,35 @@ void resetBranches(pllInstance *tr)
       p++;
     }
 }
+
+
+/**
+ * Diep 2021-05-06: tried to revert to older version
+ */
+/*
+void resetBranches(pllInstance *tr)
+{
+  nodeptr  p, q;
+  int  nodes, i;
+  
+  nodes = tr->mxtips  +  3 * (tr->mxtips - 2);
+  p = tr->nodep[1];
+  while (nodes-- > 0) 
+    {   
+      for(i = 0; i < PLL_NUM_BRANCHES; i++)
+        p->z[i] = PLL_DEFAULTZ;
+        
+      q = p->next;
+      while(q != p)
+        {       
+          for(i = 0; i < PLL_NUM_BRANCHES; i++)
+            q->z[i] = PLL_DEFAULTZ;         
+          q = q->next;
+        }
+      p++;
+    }
+}
+*/
 
 /**
  * @brief Adjust frequencies in case some base frequency is close to zero.

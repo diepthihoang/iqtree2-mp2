@@ -57,8 +57,8 @@ likelihoodbufferset.h
 alignedalloc.h
 nnimove.cpp
 nnimove.h
-mp2.h
 mp2.cpp
+mp2.h
 )
 
 target_link_libraries(tree pll model alignment)
