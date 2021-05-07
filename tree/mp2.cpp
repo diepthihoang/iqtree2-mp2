@@ -15,7 +15,7 @@
 // Run unit test for parsimony score:
 // ./iqtree2-mpi -s example.phy -t example.phy.treefile --test-pars-score 1 -redo
 // --test-pars-score 1 <1|2> where 1 is for PLL core, 2 is for IQTREE2 core
-void runUnitTestParsimonyScore(Params &params) {
+void ParsimonyTest::runUnitTestParsimonyScore(Params &params) {
     if(params.unit_test_pars_score == 2){
         cout << "Test using iqtree2/dev parsimony computation:" << endl;
         Alignment alignment(params.aln_file, params.sequence_type, params.intype, params.model_name);
@@ -53,6 +53,7 @@ void runUnitTestParsimonyScore(Params &params) {
         ptree->setParams(&params);
         
         ptree->initializePLL(params); // Diep: This one modifies topo?
+        allocateParsimonyDataStructures(ptree->pllInst, ptree->pllPartitions);
 
     	// string tree_string = ptree->getTreeString();
         stringstream tree_stream;
@@ -73,7 +74,7 @@ void runUnitTestParsimonyScore(Params &params) {
         cout << "\nBEFORE eval, string(pllInst->tree_string) = " << tree_str << endl;
 
         pllNewickParseDestroy(&pll_tree);
-		allocateParsimonyDataStructures(ptree->pllInst, ptree->pllPartitions);
+		
 		ptree->pllInst->bestParsimony = UINT_MAX; // Important because of early termination in evaluateSankoffParsimonyIterativeFastSIMD
 		unsigned int pll_score = pllEvaluateParsimonyFast(ptree->pllInst, ptree->pllPartitions, ptree->pllInst->start, PLL_TRUE);
 		cout << "\nParsimony score (by PLL kernel) is: " << pll_score << endl;
@@ -83,6 +84,7 @@ void runUnitTestParsimonyScore(Params &params) {
 			    PLL_TRUE, 0, 0, 0, PLL_SUMMARIZE_LH, 0, 0);             
         tree_str = string(ptree->pllInst->tree_string);        
         cout << "string(pllInst->tree_string) = " << tree_str << endl;
+
 		pllFreeParsimonyDataStructures(ptree->pllInst, ptree->pllPartitions);
         delete ptree;
     }	
@@ -92,7 +94,7 @@ void runUnitTestParsimonyScore(Params &params) {
 // Run unit test for parsimony SPR performance:
 // ./iqtree2-mpi -s example.phy -t example.phy.treefile --test-pars-spr 1 -redo
 // --test-pars-spr <1|2> where 1 is for PLL core, 2 is for IQTREE2 core
-void runUnitTestParsimonySPR(Params &params) {
+void ParsimonyTest::runUnitTestParsimonySPR(Params &params) {
     if(params.unit_test_pars_spr == 2){
         cout << "Test using iqtree2/dev parsimony computation:" << endl;
         Alignment alignment(params.aln_file, params.sequence_type, params.intype, params.model_name);
@@ -130,6 +132,7 @@ void runUnitTestParsimonySPR(Params &params) {
         ptree->setParams(&params);
         
         ptree->initializePLL(params); // Diep: This one modifies topo?
+        allocateParsimonyDataStructures(ptree->pllInst, ptree->pllPartitions);
 
     	// string tree_string = ptree->getTreeString();
         stringstream tree_stream;
@@ -150,7 +153,7 @@ void runUnitTestParsimonySPR(Params &params) {
         cout << "\nBEFORE eval, string(pllInst->tree_string) = " << tree_str << endl;
 
         pllNewickParseDestroy(&pll_tree);
-		allocateParsimonyDataStructures(ptree->pllInst, ptree->pllPartitions);
+		
 		ptree->pllInst->bestParsimony = UINT_MAX; // Important because of early termination in evaluateSankoffParsimonyIterativeFastSIMD
 		unsigned int pll_score = pllEvaluateParsimonyFast(ptree->pllInst, ptree->pllPartitions, ptree->pllInst->start, PLL_TRUE);
 		cout << "\nParsimony score (by PLL kernel) is: " << pll_score << endl;
@@ -160,6 +163,7 @@ void runUnitTestParsimonySPR(Params &params) {
 			    PLL_TRUE, 0, 0, 0, PLL_SUMMARIZE_LH, 0, 0);             
         tree_str = string(ptree->pllInst->tree_string);        
         cout << "string(pllInst->tree_string) = " << tree_str << endl;
+        
 		pllFreeParsimonyDataStructures(ptree->pllInst, ptree->pllPartitions);
         delete ptree;
     }	

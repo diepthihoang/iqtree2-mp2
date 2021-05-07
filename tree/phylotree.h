@@ -65,6 +65,7 @@ class TargetBranchRange;
 class ParsimonyPathVector;
 class PhyloTreeThreadingContext;
 class LikelihoodBlockPairs;
+class ParsimonyTest; // Diep 2021-05-07
 
 #define BOOT_VAL_FLOAT
 #define BootValType float
@@ -345,6 +346,7 @@ class PhyloTree : public MTree, public Optimization, public CheckpointFactory {
     friend class ParsimonyMatrix;
     friend class NNIMove;
     friend class NNIContext;
+    friend class ParsimonyTest; // Diep 2021-05-07
 
 public:
     
@@ -2587,8 +2589,7 @@ public:
     /** report that a task is complete*/
     virtual void doneProgress();
 
-// Diep 2021-05-06: Loosen access to PLL data structure to implement unit test    
-public:
+protected:
     /**
      *  Instance of the phylogenetic likelihood library. This is basically the tree data strucutre in RAxML
      */
@@ -2609,7 +2610,6 @@ public:
      */
     partitionList * pllPartitions;
 
-protected:
     /**
      *  is the subtree distance matrix need to be computed or updated
      */

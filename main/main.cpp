@@ -2665,9 +2665,9 @@ int main(int argc, char *argv[]) {
     } else if (params.do_pars_multistate) {
         doParsMultiState(params);
     } else if(params.unit_test_pars_spr > 0){ // Diep: 2021-05-03
-    	runUnitTestParsimonySPR(params);
+    	ParsimonyTest::runUnitTestParsimonySPR(params);
     } else if(params.unit_test_pars_score > 0){ // Diep: 2021-05-03
-    	runUnitTestParsimonyScore(params);
+    	ParsimonyTest::runUnitTestParsimonyScore(params);
     } else if (params.rf_dist_mode != 0) {
         computeRFDist(params);
     } else if (params.test_input != TEST_NONE) {

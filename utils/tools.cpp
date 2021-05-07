@@ -875,6 +875,7 @@ void parseArg(int argc, char *argv[], Params &params) {
     params.date_outlier = -1.0;
     
     params.unit_test_pars_spr = 0; // Diep: by default, test does not run
+    params.unit_test_pars_score = 0; // Diep: by default, test does not run
 
     params.matrix_exp_technique = MET_EIGEN3LIB_DECOMPOSITION;
 

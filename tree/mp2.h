@@ -10,6 +10,10 @@
 
 #include "utils/tools.h"
 #include "pll/pll.h"
-void runUnitTestParsimonyScore(Params &params);
-void runUnitTestParsimonySPR(Params &params);
+class ParsimonyTest{
+public:
+    static void runUnitTestParsimonyScore(Params &params);
+    static void runUnitTestParsimonySPR(Params &params);
+};
+
 #endif /* TREE_MP2_H_ */

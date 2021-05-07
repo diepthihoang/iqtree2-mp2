@@ -521,9 +521,9 @@ static void newviewParsimonyIterativeFast(pllInstance *tr, partitionList *pr)
             }            
         }
 
-      tr->parsimonyScore[pNumber] = totalScore + tr->parsimonyScore[rNumber] + tr->parsimonyScore[qNumber];      
-      printf("\ntr->parsimonyScore[%d]=%d+parsimonyScore[%d]+parsimonyScore[%d]=%d", 
-        pNumber, totalScore, rNumber, qNumber, tr->parsimonyScore[pNumber]);
+        tr->parsimonyScore[pNumber] = totalScore + tr->parsimonyScore[rNumber] + tr->parsimonyScore[qNumber];      
+        // printf("\ntr->parsimonyScore[%d]=%d+parsimonyScore[%d]+parsimonyScore[%d]=%d", 
+        //     pNumber, totalScore, rNumber, qNumber, tr->parsimonyScore[pNumber]); // Diep
     }
 }
 
@@ -696,7 +696,7 @@ static unsigned int evaluateParsimonyIterativeFast(pllInstance *tr, partitionLis
            }
          }
     }
-    printf("\nsum=%d", sum);
+    // printf("\nsum=%d", sum); // Diep
   
     return sum;
 }
@@ -903,9 +903,9 @@ static void newviewParsimonyIterativeFast(pllInstance *tr, partitionList * pr)
             } 
         }
 
-      tr->parsimonyScore[pNumber] = totalScore + tr->parsimonyScore[rNumber] + tr->parsimonyScore[qNumber];      
-      printf("\ntr->parsimonyScore[%d]=%d+parsimonyScore[%d]+parsimonyScore[%d]=%d", 
-        pNumber, totalScore, rNumber, qNumber, tr->parsimonyScore[pNumber]);
+        tr->parsimonyScore[pNumber] = totalScore + tr->parsimonyScore[rNumber] + tr->parsimonyScore[qNumber];      
+        // printf("\ntr->parsimonyScore[%d]=%d+parsimonyScore[%d]+parsimonyScore[%d]=%d", 
+        //     pNumber, totalScore, rNumber, qNumber, tr->parsimonyScore[pNumber]); // Diep
     }
 }
 
@@ -1074,7 +1074,7 @@ static unsigned int evaluateParsimonyIterativeFast(pllInstance *tr, partitionLis
          }
     }
 
-  printf("\nsum=%d", sum);
+//   printf("\nsum=%d", sum); // Diep
   return sum;
 }
 
