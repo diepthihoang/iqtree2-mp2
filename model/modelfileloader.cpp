@@ -169,7 +169,7 @@ void ModelFileLoader::parseModelParameter(const YAML::Node& param,
                     << " was greater than maximum (" << p.maximum_subscript << ")";
             }
         }
-        catch (ModelExpression::ModelException& x) {
+        catch (ModelExpression::ModelException x) {
             std::stringstream msg;
             msg << "Error parsing " << parsing_what
                 << " for " << info.getName()
@@ -369,10 +369,12 @@ void ModelFileLoader::parseMatrixParameter(const YAML::Node& param,
         outError(name + " matrix parameter not recognized"
                  " in " + info.getName() + " model");
     }
-    std::stringstream matrix_stream;
-    dumpMatrixTo(lower_name.c_str(), info, expressions, rank,
-                 formula, matrix_stream);
-    TREE_LOG_LINE(*report_to_tree, YAMLModelVerbosity, matrix_stream.str());
+    if (YAMLMatrixVerbosity <= verbose_mode) {
+        std::stringstream matrix_stream;
+        dumpMatrixTo(lower_name.c_str(), info, expressions, rank,
+                     formula, matrix_stream);
+        TREE_LOG_LINE(*report_to_tree, YAMLModelVerbosity, matrix_stream.str());
+    }
 }
 
 YAMLFileParameter
@@ -409,6 +411,7 @@ void ModelFileLoader::parseYAMLMixtureModels(const YAML::Node& mixture_models,
 void ModelFileLoader::parseYAMLModelConstraints(const YAML::Node& constraints,
                                                 ModelInfoFromYAMLFile& info,
                                                 PhyloTree* report_to_tree) {
+    int constraint_num = 1;
     for (const YAML::Node& constraint: constraints) {
         //
         //constraints are assignments of the form: name = value
@@ -423,17 +426,26 @@ void ModelFileLoader::parseYAMLModelConstraints(const YAML::Node& constraints,
             outError(complaint.str());
         }
         std::string constraint_string = constraint.Scalar();
-        ModelExpression::InterpretedExpression
-            interpreter(info, constraint_string);
-        ModelExpression::Expression* x = interpreter.expression();
-        if (!x->isAssignment()) {
-            complaint << "Constraint setting for model " << info.model_name
-                      << " was not an asignment: " << constraint_string;
+        try { 
+            ModelExpression::InterpretedExpression
+                interpreter(info, constraint_string);
+            ModelExpression::Expression* x = interpreter.expression();
+            if (!x->isAssignment()) {
+                complaint << "Constraint setting for model " << info.model_name
+                          << " was not an asignment: " << constraint_string;
+                outError(complaint.str());
+            }
+            ModelExpression::Assignment* a =
+                dynamic_cast<ModelExpression::Assignment*>(x);
+            setConstraint(a, info, constraint_string, report_to_tree);
+        }
+        catch (ModelExpression::ModelException x) {
+            std::stringstream complaint;
+            complaint << "An error occurred parsing constraint " << constraint_num
+                      << ": " << x.getMessage();
             outError(complaint.str());
         }
-        ModelExpression::Assignment* a =
-            dynamic_cast<ModelExpression::Assignment*>(x);
-        setConstraint(a, info, constraint_string, report_to_tree);
+        ++constraint_num;
     }
 }
 
@@ -441,7 +453,8 @@ double ModelFileLoader::setConstraint(ModelExpression::Assignment* a,
                                     ModelInfoFromYAMLFile& info,
                                     const std::string& constraint_string,
                                     PhyloTree* report_to_tree) {
-    if (!a->getTarget()->isVariable()) {
+    ModelExpression::Expression* assigned = a->getTarget();
+    if (!assigned->isVariable()) {
         std::stringstream complaint;
         complaint << "Constraint setting for model " << info.model_name
                   << " did not assign a variable: " << constraint_string;
@@ -513,30 +526,32 @@ void ModelFileLoader::parseRateMatrix(const YAML::Node& rate_matrix,
     //Todo: Are off-diagonal entries in the matrix allowed
     //to be blank?
     //
-    std::stringstream matrix_stream;
-    dumpMatrixTo("rate", info, info.rate_matrix_expressions,
-                 info.rate_matrix_rank, info.rate_matrix_formula,
-                 matrix_stream);
-    TREE_LOG_LINE(*report_to_tree, YAMLModelVerbosity, matrix_stream.str());
+    if (YAMLMatrixVerbosity <= verbose_mode) {
+        std::stringstream matrix_stream;
+        dumpMatrixTo("rate", info, info.rate_matrix_expressions,
+                     info.rate_matrix_rank, info.rate_matrix_formula,
+                     matrix_stream);
+        TREE_LOG_LINE(*report_to_tree, YAMLModelVerbosity, matrix_stream.str());
+    }
 }
 
 void ModelFileLoader::dumpMatrixTo(const char* name, ModelInfoFromYAMLFile& info,
                                    const StringMatrix& matrix, int rank,
                                    const std::string& formula, std::stringstream &out) {
-    ModelVariable& row_var    = info.forceAssign("row",    (double)0);
-    ModelVariable& column_var = info.forceAssign("column", (double)0);
+    ModelVariable& row_var    = info.forceAssign("row",    0);
+    ModelVariable& column_var = info.forceAssign("column", 0);
 
-    std::string with_formula;
+    std::string       with_formula;
     std::stringstream dump;
     if (!matrix.empty()) {
         //If there's a matrix of expressions, dump the expressions
         int row = 0;
         for (auto r : matrix) {
-            row_var.setValue(row);
+            row_var.setValue(row+1);
             const char* separator = "";
             int col = 0;
             for (auto c: r) {
-                column_var.setValue(col);
+                column_var.setValue(col+1);
                 dump << separator << c;
                 separator = " : ";
                 ++col;
@@ -549,18 +564,21 @@ void ModelFileLoader::dumpMatrixTo(const char* name, ModelInfoFromYAMLFile& info
         //If there is a formula, dump the formula, and its
         //current value, for each entry in the matrix
         with_formula = " (with formula " + formula + ")";
-        for (int row=0; row<rank; ++row) {
-            row_var.setValue(row);
+        bool broken = false;
+        for (int row=0; row<rank && !broken; ++row) {
+            row_var.setValue(row+1);
             const char* separator = "";
-            for (int col=0; col<rank; ++col) {
-                column_var.setValue(col);
+            for (int col=0; col<rank && !broken; ++col) {
+                column_var.setValue(col+1);
                 try {
                     Interpreter interpreter(info, formula);
                     double value = interpreter.evaluate();
                     dump << separator << value;
                 }
-                catch (ModelExpression::ModelException& x) {
-                    dump << separator << " ERROR(" << x.getMessage() << ")";
+                catch (ModelExpression::ModelException x) {
+                    dump << separator << " ERROR(" << x.getMessage() << ")"
+                         << " for entry [" << (row+1) << "," << (col+1) << "]";
+                    broken = true;
                 }
                 separator = " : ";
             }
@@ -579,22 +597,49 @@ void ModelFileLoader::parseYAMLSubstitutionModel(const YAML::Node& substitution_
                                                  ModelInfoFromYAMLFile* parent_model,
                                                  PhyloTree* report_to_tree) {
     
-    std::string superclass_model_name = stringScalar(substitution_model, "frommodel", "");
-    if (superclass_model_name != "") {
-        if (list.hasModel(superclass_model_name)) {
-            info = list.getModel(superclass_model_name);
-            TREE_LOG_LINE(*report_to_tree, YAMLModelVerbosity,
-                          "Model " << name_of_model
-                          << " is based on model " << superclass_model_name);
-        } else {
-            std::stringstream complaint;
-            complaint << "Model " << name_of_model << " specifies frommodel "
-                      << superclass_model_name << ", but that model was not found.";
-            outError(complaint.str());
+    info.is_modifier_model = false;
+    info.parent_model_name = stringScalar(substitution_model, "frommodel", "");
+    if (info.parent_model_name != "") {
+        if (string_to_upper(info.parent_model_name)=="ANY") {
+            info.parent_model_name.clear();
+            info.is_modifier_model = true;
+        }
+        else {
+            bool have_first_parent = false;
+            for (string ancestral_model : split_string(info.parent_model_name, "+")) {
+                if (list.hasModel(ancestral_model)) {
+                    if (!have_first_parent) {
+                        info = list.getModel(ancestral_model);
+                        TREE_LOG_LINE(*report_to_tree, YAMLModelVerbosity,
+                                    "Model " << name_of_model
+                                    << " is based on model " << ancestral_model);
+                        have_first_parent      = true;
+                    } else {
+                        const ModelInfoFromYAMLFile& modifier = 
+                            list.getModel(ancestral_model);
+                        info.inheritModel(modifier);
+                        TREE_LOG_LINE(*report_to_tree, YAMLModelVerbosity,
+                                    "Model " << name_of_model
+                                    << " is also based on model " << ancestral_model);
+                    }
+                } else {
+                    std::stringstream complaint;
+                    complaint << "Model " << name_of_model << " specifies a parent model of "
+                            << parent_model << ", but that model was not found.";
+                    complaint << "\nRecognized models are: ";
+                    const char* separator;
+                    for (std::string possible : list.getModelNames()) {
+                        complaint << separator << possible;
+                        separator = ", ";
+                    }
+                    complaint << ".";
+                    outError(complaint.str());
+                }
+            }
         }
     }
     info.model_file_path = file_path;
-    info.model_name      = name_of_model.empty() ? superclass_model_name : name_of_model;
+    info.model_name      = name_of_model.empty() ? info.parent_model_name : name_of_model;
     info.citation        = stringScalar (substitution_model, "citation",   info.citation.c_str());
     info.DOI             = stringScalar (substitution_model, "doi",        info.DOI.c_str());
     info.url             = stringScalar (substitution_model, "doi",        info.url.c_str());
@@ -604,9 +649,8 @@ void ModelFileLoader::parseYAMLSubstitutionModel(const YAML::Node& substitution_
         
     int num_states_requested = integerScalar(substitution_model,
                                              "numStates", info.num_states);
-    info.setNumberOfStatesAndSequenceType(num_states_requested);
-    
-    
+    info.setNumberOfStatesAndSequenceType(num_states_requested, report_to_tree);
+        
     //
     //Todo: extract other information from the subsstitution model.
     //      Such as parameters and rate matrices and so forth
@@ -622,12 +666,20 @@ void ModelFileLoader::parseYAMLSubstitutionModel(const YAML::Node& substitution_
     //Mixtures have to be handled before constraints, as constraints
     //that are setting parameters in mixed models... would otherwise
     //not be resolved correctly.
-    auto mixtures = substitution_model["mixture"];
+    auto mixtures = substitution_model["model_mixture"];
     if (mixtures) {
         complainIfNot(mixtures.IsSequence(),
-                      "Constraints for model " + model_name +
+                      "model_mixture for model " + model_name +
                       " in file " + file_path + " not a sequence");
         parseYAMLMixtureModels(mixtures, info, list, report_to_tree);
+    }
+
+    auto linked = substitution_model["linked_models"];
+    if (linked) {
+        complainIfNot(linked.IsSequence(),
+                      "linked_models for model " + model_name +
+                      " in file " + file_path + " not a sequence");
+        //Todo: parseYAMLLinkedModels(linked, info, list, report_to_tree);
     }
     
     auto constraints = substitution_model["constraints"];
@@ -643,7 +695,9 @@ void ModelFileLoader::parseYAMLSubstitutionModel(const YAML::Node& substitution_
     //      rate_matrix_expressions will aready have been set.
     //
     auto rateMatrix = substitution_model["rateMatrix"];
-    if (info.rate_matrix_expressions.empty() && !mixtures) {
+    if (info.rate_matrix_expressions.empty() && 
+        info.rate_matrix_formula.empty() && !mixtures &&
+        !info.is_modifier_model && !linked) {
         complainIfNot(rateMatrix, "Model " + info.model_name +
                       " in file " + file_path +
                       " does not specify a rateMatrix" );
@@ -700,9 +754,16 @@ void ModelFileLoader::parseYAMLSubstitutionModel(const YAML::Node& substitution_
         info.logVariablesTo(*report_to_tree);
 
     } else {
-        //If we have parameters with a type of frequency, we're all good.
-        //If we don't, then what?   We might have inherited from a parent
-        //model, too.  That'd be okay.
+        if (info.frequency_type != StateFreqType::FREQ_UNKNOWN) {
+            //We inherited a frequency type from a parent model. Use that.
+        }
+        else if (info.hasFrequencyParameters(info.num_states)) {
+            //If we have parameters with a type of frequency, we're all good.
+            info.frequency_type = StateFreqType::FREQ_USER_DEFINED;
+        } else {
+            //If we don't, then what?  Use estimate as a last resort.
+            info.frequency_type = StateFreqType::FREQ_ESTIMATE;
+        }
     }
     
     const char* recognized_string_property_names[] = {

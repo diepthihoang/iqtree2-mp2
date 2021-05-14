@@ -510,12 +510,14 @@ static void newviewParsimonyIterativeFast(pllInstance *tr, partitionList *pr)
                         v_N = VECTOR_BIT_OR(v_N, l_A[j]);
                       }
                     
-                    for(j = 0; j < states; j++)             
-                      VECTOR_STORE((CAST)(&here[j][i]), VECTOR_BIT_OR(l_A[j], VECTOR_AND_NOT(v_N, v_A[j])));                                                                    
+                    for(j = 0; j < states; j++) {            
+                      VECTOR_STORE((CAST)(&here[j][i]), VECTOR_BIT_OR(l_A[j], VECTOR_AND_NOT(v_N, v_A[j]))); 
+                    }
                     
                     v_N = VECTOR_AND_NOT(v_N, allOne);
                     
-                    totalScore += vectorPopcount(v_N);
+                    unsigned int score_here = vectorPopcount(v_N);
+                    totalScore += score_here;
                   }                             
               }
             }            
@@ -1081,10 +1083,6 @@ static unsigned int evaluateParsimonyIterativeFast(pllInstance *tr, partitionLis
 #endif
 
 
-
-
-
-
 static unsigned int evaluateParsimony(pllInstance *tr, partitionList *pr, nodeptr p, pllBoolean full)
 {
   volatile unsigned int result;
@@ -1224,14 +1222,14 @@ static void testInsertParsimony (pllInstance *tr, partitionList *pr, nodeptr p, 
 
   if(doIt)
     {
-      double* z = (double*)rax_malloc(numBranches*sizeof(double));
+      double* z;
       
       if(saveBranches)
         {
-          int i;
-          
-          for(i = 0; i < numBranches; i++)
+          z = (double*)rax_malloc(numBranches*sizeof(double));
+          for(int i = 0; i < numBranches; i++) {
             z[i] = q->z[i];
+          }
         }
 
       insertParsimony(tr, pr, p, q);
@@ -1245,13 +1243,15 @@ static void testInsertParsimony (pllInstance *tr, partitionList *pr, nodeptr p, 
           tr->removeNode = p;
         }
       
-      if(saveBranches)
-        hookup(q, r, z, numBranches);
-      else
-        hookupDefault(q, r);
-      
+      if(saveBranches) {
+          hookup(q, r, z, numBranches);
+          rax_free(z);
+        }
+      else {
+          hookupDefault(q, r);
+        }
+
       p->next->next->back = p->next->back = (nodeptr) NULL;
-      rax_free(z);
     }
        
   return;
@@ -1286,9 +1286,6 @@ static void addTraverseParsimony (pllInstance *tr, partitionList *pr, nodeptr p,
       addTraverseParsimony(tr, pr, p, q->next->next->back, mintrav, maxtrav, doAll, saveBranches);
     }
 }
-
-
-
 
 
 static void makePermutationFast(int *perm, int n, pllInstance *tr)
@@ -1355,6 +1352,8 @@ static int rearrangeParsimony(pllInstance *tr, partitionList *pr, nodeptr p, int
 
   q = p->back;
 
+	unsigned int mp = evaluateParsimony(tr, pr, p, PLL_FALSE); // Diep: This is VERY important to make sure SPR is accurate*****
+  
   if(tr->constrained)
     {    
       if(! tipHomogeneityCheckerPars(tr, p->back, 0))
@@ -1374,7 +1373,6 @@ static int rearrangeParsimony(pllInstance *tr, partitionList *pr, nodeptr p, int
       
       if ((p1->number > tr->mxtips) || (p2->number > tr->mxtips)) 
         {                 
-          //removeNodeParsimony(p, tr);          
           removeNodeParsimony(p);                
 
           if ((p1->number > tr->mxtips)) 
@@ -1415,7 +1413,6 @@ static int rearrangeParsimony(pllInstance *tr, partitionList *pr, nodeptr p, int
           )
         {          
 
-          //removeNodeParsimony(q, tr);
           removeNodeParsimony(q);
           
           mintrav2 = mintrav > 2 ? mintrav : 2;
@@ -1515,6 +1512,7 @@ static pllBoolean isInformative2(pllInstance *tr, int site)
 }
 */
 
+/*
 static pllBoolean isInformative(pllInstance *tr, int dataType, int site)
 {
   int
@@ -1559,8 +1557,55 @@ static pllBoolean isInformative(pllInstance *tr, int dataType, int site)
      
   return PLL_FALSE;          
 }
+*/
+
+// Diep 2021-05-14: 
+//      I modify isInformative() to get correct parsimony score by PLL
+//      MPBoot2 needs all non-constant sites as informative
+//      Besides, correct parsimony scores are necessary for benchmarking PLL vs IQTREE2
+static pllBoolean isInformative(pllInstance *tr, int dataType, int site)
+{
+	int
+		informativeCounter = 0,
+		check[256],
+		j,
+		undetermined = getUndetermined(dataType);
+
+	const unsigned int
+		*bitVector = getBitVector(dataType);
+
+	unsigned char
+		nucleotide;
 
 
+	for(j = 0; j < 256; j++)
+		check[j] = 0;
+
+	for(j = 1; j <= tr->mxtips; j++)
+	{
+		nucleotide = tr->yVector[j][site];
+		check[nucleotide] = 1;
+		assert(bitVector[nucleotide] > 0);
+	}
+
+	for(j = 0; j < undetermined; j++)
+	{
+		if(check[j] > 0)
+		informativeCounter++;
+	}
+
+	if(informativeCounter > 1)
+		return PLL_TRUE;
+
+	return PLL_FALSE;
+
+}
+
+
+// Diep 2021-05-14: 
+//      This will be affected by my modification in isInformative()
+//      MPBoot2 needs all non-constant sites as informative
+//      Besides, correct parsimony scores are necessary for benchmarking PLL vs IQTREE2
 static void determineUninformativeSites(pllInstance *tr, partitionList *pr, int *informative)
 {
   int 
@@ -1959,53 +2004,8 @@ void pllMakeParsimonyTreeFast(pllInstance *tr, partitionList *pr, int sprDist)
             }
         }                          
     }
-  while(randomMP < startMP);
-  
+  while(randomMP < startMP);  
   rax_free(perm);
-} 
-
-#if (0) //Old version
-int pllOptimizeWithParsimonySPR(pllInstance* tr, partitionList* pr, 
-                                 int maxSprIterations, int sprDist) {
-    allocateParsimonyDataStructures(tr, pr);
-
-    unsigned int totalNodes = tr->mxtips + tr->mxtips - 2;
-    nodeRectifierPars(tr);
-    tr->bestParsimony = UINT_MAX;
-    tr->bestParsimony = evaluateParsimony(tr, pr, tr->start, PLL_TRUE);
-
-    int          iterationsToGo = maxSprIterations;
-    unsigned int randomMP       = tr->bestParsimony;
-    unsigned int startMP;
-    do //Always do at least one iteration
-    {
-        startMP = randomMP;
-        //printf("start iteration=%d, mp=%d, sprdist=%d\n",
-        //       maxSprIterations-iterationsToGo+1,
-        //       startMP, sprDist);
-        nodeRectifierPars(tr);
-        for (unsigned int i = 1; i <= totalNodes ; ++i)
-        {
-            nodeptr p = tr->nodep[i];
-            rearrangeParsimony(tr, pr, p, 1, sprDist, PLL_FALSE);
-            if (tr->bestParsimony < randomMP) {
-                //printf("better %d %d\n", i, tr->bestParsimony);
-                restoreTreeRearrangeParsimony(tr, pr);
-                randomMP = tr->bestParsimony;
-            }
-            //else {
-            //    printf("worse %d %d\n", i, tr->bestParsimony);
-            //}
-        }
-        --iterationsToGo;
-    } while (0<iterationsToGo && randomMP < startMP);
-    pllFreeParsimonyDataStructures(tr, pr);
-    return maxSprIterations - iterationsToGo;
-}
-#endif 
-
-double crap_random_double() {
-  return (double)rand() / (double)((unsigned)RAND_MAX + 1);
 } 
 
 /**
@@ -2018,7 +2018,6 @@ double crap_random_double() {
  * 
  */
 int pllOptimizeWithParsimonySPR(pllInstance * tr, partitionList * pr, int maxSprIterations, int maxtrav ){
-  srand(time(NULL));
   int perSiteScores = 1; //In Diep Thi Hoang's code, initialized to: globalParam->gbo_replicates > 0;
   int mintrav       = 1; //In Diep's code, this is a parameter
 	                       //Diep's code declared: unsigned int bestIterationScoreHits = 1;
@@ -2030,11 +2029,13 @@ int pllOptimizeWithParsimonySPR(pllInstance * tr, partitionList * pr, int maxSpr
   nodeRectifierPars(tr);
   tr->bestParsimony = UINT_MAX;
   tr->bestParsimony = evaluateParsimony(tr, pr, tr->start, PLL_TRUE);
+  //printf("initial parsimony %d\n", tr->bestParsimony);
 
   int          iterationsToGo = maxSprIterations;
   unsigned int randomMP       = tr->bestParsimony;
   int          nodeCount      = tr->mxtips + tr->mxtips - 2;
   unsigned int startMP;
+  unsigned int sprMovesDone   = 0; //Count of moves done so far
 
   tr->ntips = tr->mxtips; //<-- THIS was the important additional statement, in Diep's code
 
@@ -2044,33 +2045,22 @@ int pllOptimizeWithParsimonySPR(pllInstance * tr, partitionList * pr, int maxSpr
     for(int i = 1; i <= nodeCount; ++i){
       tr->insertNode = NULL;
       tr->removeNode = NULL;
-
       rearrangeParsimony(tr, pr, tr->nodep[i], mintrav, maxtrav, PLL_FALSE);
-
-      #if (0) //Diep had this
-      if(tr->bestParsimony == randomMP) bestIterationScoreHits++;
-      if(tr->bestParsimony < randomMP) bestIterationScoreHits = 1;
-      if(((tr->bestParsimony < randomMP) ||
-          ((tr->bestParsimony == randomMP) &&
-            (crap_random_double() <= 1.0 / bestIterationScoreHits))) &&
-          tr->removeNode && tr->insertNode){
-        restoreTreeRearrangeParsimony(tr, pr);
-        randomMP = tr->bestParsimony;
-      }
-      #else 
       if (tr->removeNode!=NULL && tr->insertNode!=NULL) {
         if (tr->bestParsimony < randomMP) {
           restoreTreeRearrangeParsimony(tr, pr);
           randomMP = tr->bestParsimony;
+          ++sprMovesDone;
         } 
+      } else {
+        tr->bestParsimony = randomMP; //James B. 10-May-2021
       }
-      #endif
     } 
+    //printf("Parsimony now %d after %d moves\n", randomMP, sprMovesDone);
     --iterationsToGo;
   } while(randomMP < startMP && 0<iterationsToGo);
 
-  pllFreeParsimonyDataStructures(tr, pr); //<-- This was missing.
-
+  pllFreeParsimonyDataStructures(tr, pr); 
   return maxSprIterations - iterationsToGo; //Return # of iterations 
 }
 
@@ -2081,6 +2071,7 @@ Create alike pllEvaluateParsimony from parsimony.c because CMakeLists currently 
 */
 unsigned int pllEvaluateParsimonyFast(pllInstance *tr, partitionList *pr, nodeptr p, pllBoolean full)
 {
+    nodeRectifierPars(tr);
   volatile unsigned int result;
   nodeptr q = p->back;
   int

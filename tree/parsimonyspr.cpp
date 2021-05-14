@@ -422,10 +422,10 @@ void ParsimonySPRMove::findMove(const PhyloTree& tree,
     }
 }
 
-int PhyloTree::doParsimonySPR() {
+int PhyloTree::doParsimonySPR(VerboseMode how_loud) {
     return doParsimonySPR(params->parsimony_spr_iterations,
                           params->use_lazy_parsimony_spr,
-                          params->spr_radius, false);
+                          params->spr_radius, verbose_mode < how_loud );
 }
 
 
@@ -443,10 +443,11 @@ int PhyloTree::doParsimonySPR(intptr_t iterations, bool lazy,
     return doParsimonySearch<ParsimonySPRMove>(s);
 }
 
-void IQTree::doPLLParsimonySPR() {
+void IQTree::doPLLParsimonySPR(VerboseMode how_loud) {
     double    init_start = getRealTime();
     StrVector oldNames;
     bool      areNamesDummied = false;
+
     deleteAllPartialParsimony(); 
     if (!isInitializedPLL()) {
         //Names containing '/' characters give PLL trouble.
@@ -458,6 +459,8 @@ void IQTree::doPLLParsimonySPR() {
         ASSERT(taxa.size() == aln->getSeqNames().size());
         intptr_t taxa_count = taxa.size();
         for (intptr_t i=0; i<taxa_count; ++i) {
+            //Note: the... if (areNamesDummied)... block below
+            //depends on the exact format used here.
             std::stringstream dummy;
             dummy << "S" << i;
             std::string dummyName = dummy.str();
@@ -467,7 +470,11 @@ void IQTree::doPLLParsimonySPR() {
         initializePLL(*params);
     }
 
-    string constructedTreeString = getTreeString();
+    stringstream tree_stream;
+    setRootNode(params->root);
+    printTree(tree_stream, WT_SORT_TAXA);
+    string constructedTreeString = tree_stream.str();;
+    
     pllReadNewick(constructedTreeString);
     double opt_start = getRealTime();
     int iterations = pllOptimizeWithParsimonySPR(pllInst, pllPartitions,
@@ -478,37 +485,53 @@ void IQTree::doPLLParsimonySPR() {
         pllInst->start->back, PLL_FALSE, PLL_TRUE, PLL_FALSE,
         PLL_FALSE, PLL_FALSE, PLL_SUMMARIZE_LH, PLL_FALSE, PLL_FALSE);
     string pllTreeString = string(pllInst->tree_string);
-    PhyloTree::readTreeString(pllTreeString);
-    
+
     if (areNamesDummied) {
-        PhyloNodeVector taxa ( getTaxaNodesInIDOrder() );
-        intptr_t taxa_count     = taxa.size();
-        intptr_t seq_name_count = aln->getSeqNames().size();
-        ASSERT(taxa_count == seq_name_count);
-        for (intptr_t i=0; i<taxa_count; ++i) {
-            taxa[i]->name = oldNames[i];
-            aln->setSeqName(static_cast<int>(i), oldNames[i]);
-        }
+        //Destroying PLL instance NOW avoids PLL being told about
+        //the updated version of the tree when we read it back(!).
+        //That would be pointless...
         pllDestroyInstance(pllInst);
         pllInst = nullptr;
     }
 
+    PhyloTree::readTreeString(pllTreeString, areNamesDummied);
+    
+    if (areNamesDummied) {
+        PhyloNodeVector taxa;
+        getTaxa(taxa);
+        intptr_t seq_name_count = aln->getSeqNames().size();
+        intptr_t taxa_count     = taxa.size();
+        ASSERT(taxa_count == seq_name_count);
+        for (intptr_t i=0; i<taxa_count; ++i) {
+            aln->setSeqName(static_cast<int>(i), oldNames[i]);
+        }
+        for (auto taxon_node: taxa) {
+            taxon_node->id = atoi(taxon_node->name.c_str()+1); 
+            //Names are of the form Sn, where n is decimal number,
+            //so need to skip over the S at the front of the name.
+            //See the... if (!isInitializedPLL())... block above.
+            taxon_node->name = oldNames[taxon_node->id];
+        }
+    }
+
     double pars_start = getRealTime();
     initializeAllPartialPars();
-    auto optimized_parsimony = computeParsimony("Computing post optimization parsimony");
-    LOG_LINE(VerboseMode::VB_MIN, "After " << iterations << " rounds of Parsimony SPR,"
+    double optimized_parsimony = computeParsimony("Computing post optimization parsimony", true);
+    //Note: bidirectional=true, because setAllBranchLengthsFromParsimony() needs 
+    //      every branch's parsimony views calculated in *both* directions.
+    LOG_LINE(how_loud, "After " << iterations << " rounds of Parsimony SPR,"
              << " parsimony score was " << optimized_parsimony);
     double pars_time             = (getRealTime() - pars_start);
     double pll_setup_overhead    = (opt_start - init_start);
     double pll_teardown_overhead = (pars_start - read_start);
     double spr_time              = (read_start - opt_start);
-    LOG_LINE(VerboseMode::VB_MED, "SPR optimization  took " << spr_time << " wall-clock seconds");
-    LOG_LINE(VerboseMode::VB_MED, "PLL set-up        took " << pll_setup_overhead << " wall-clock seconds");
-    LOG_LINE(VerboseMode::VB_MED, "PLL tear-down     took " << pll_teardown_overhead << " wall-clock seconds");   
-    LOG_LINE(VerboseMode::VB_MED, "Parsimony scoring took " << pars_time << " wall-clock seconds");
+    LOG_LINE(how_loud, "SPR optimization  took " << spr_time              << " wall-clock seconds");
+    LOG_LINE(how_loud, "PLL set-up        took " << pll_setup_overhead    << " wall-clock seconds");
+    LOG_LINE(how_loud, "PLL tear-down     took " << pll_teardown_overhead << " wall-clock seconds");   
+    LOG_LINE(how_loud, "Parsimony scoring took " << pars_time             << " wall-clock seconds");
     
     double fix_start = getRealTime();
-    fixNegativeBranches(false);
+    setAllBranchLengthsFromParsimony(false, optimized_parsimony);
     double fix_time  = getRealTime()-fix_start;
-    LOG_LINE(VerboseMode::VB_MED, "Fixing -ve branches took " << fix_time << " wall-clock seconds");
+    LOG_LINE(how_loud, "Setting branch lengths took " << fix_time        << " wall-clock seconds");
 }

@@ -1076,16 +1076,19 @@ void PhyloTree::setRootNode(const char *my_root, bool multi_taxa) {
         outWarning("Branch separating outgroup is not found");
 }
 
-void PhyloTree::readTreeString(const string &tree_string) {
+void PhyloTree::readTreeString(const string &tree_string, bool keep_node_names) {
     stringstream str(tree_string);
     freeNode();
     
-    // bug fix 2016-04-14: in case taxon name happens to be ID
     MTree::readTree(str, rooted);
+    if (!keep_node_names) {
+        // bug fix 2016-04-14: in case taxon name happens to be ID
+        assignLeafNames();
+    } else {
+        // bug fix 2021-05-10: in case taxon name *isn't* ID.
+    }
 
-    assignLeafNames();
     setRootNode(Params::getInstance().root);
-
     if (isSuperTree()) {
         ((PhyloSuperTree*) this)->mapTrees();
     }
@@ -1558,6 +1561,14 @@ int PhyloTree::computeParsimony(const char* taskDescription,
     }
     return calculator.computeParsimonyBranch
            ( nei, r, taskDescription );
+}
+
+int PhyloTree::computeParsimony(const std::string& taskDescription,
+                                bool bidirectional, bool countProgress,
+                                PhyloNeighbor* neighbor,
+                                PhyloNode* starting_node) {
+    return computeParsimony(taskDescription.c_str(), bidirectional,
+                            countProgress, neighbor, starting_node);
 }
 
 /****************************************************************************
@@ -4031,7 +4042,7 @@ template <class L, class F> double computeDistanceMatrix
         //results in the last few rows being allocated to some worker thread
         //just before the others finish... it won't be running
         //"all by itsef" for as long.
-        size_t   rowOffset     = nseqs * seq1;
+        intptr_t rowOffset     = nseqs * seq1;
         double*  distRow       = dist_mat       + rowOffset;
         const L* thisSequence  = sequenceMatrix + seq1 * seqLen;
         const L* otherSequence = thisSequence   + seqLen;
@@ -4136,7 +4147,7 @@ double PhyloTree::computeDistanceMatrix_Experimental() {
     }
     bool uncorrected = params->compute_obs_dist;
         //Use uncorrected (observed) distances
-    int seqCount = aln->getNSeq32();
+    intptr_t seqCount = aln->getNSeq();
     bool workToDo = false;
     cout.precision(6);
     EX_TRACE("Checking if distances already calculated...");
@@ -4148,11 +4159,11 @@ double PhyloTree::computeDistanceMatrix_Experimental() {
         DoubleVector rowMaxDistance;
         rowMaxDistance.resize(seqCount, 0.0);
         #pragma omp parallel for
-        for (int seq1=0; seq1<seqCount; ++seq1) {
+        for (intptr_t seq1=0; seq1<seqCount; ++seq1) {
             if (!workToDo) {
                 const double* distRow   = dist_matrix + seq1 * seqCount;
                 double maxDistanceInRow = 0;
-                for (int seq2=0; seq2<seqCount; ++seq2) {
+                for (intptr_t seq2=0; seq2<seqCount; ++seq2) {
                     double distance = distRow[seq2];
                     if (0.0 == distance && ( seq1 != seq2 ) ) {
                         workToDo = true;
@@ -4169,7 +4180,7 @@ double PhyloTree::computeDistanceMatrix_Experimental() {
         if (!workToDo) {
             EX_TRACE("No work to do");
             double longest_dist = 0.0;
-            for ( size_t seq1 = 0; seq1 < seqCount; ++seq1  ) {
+            for ( intptr_t seq1 = 0; seq1 < seqCount; ++seq1  ) {
                 if ( longest_dist < rowMaxDistance[seq1] ) {
                     longest_dist = rowMaxDistance[seq1];
                 }
@@ -4184,7 +4195,8 @@ double PhyloTree::computeDistanceMatrix_Experimental() {
     EX_TRACE("Summarizing found " << s.getSequenceLength()
         << " sites with variation (and non-zero frequency),"
         << " and a state range of " << ( s.getStateCount()));
-    for (size_t i=0; i<s.getSequenceLength(); ++i) {
+    intptr_t seq_len = s.getSequenceLength();
+    for (intptr_t i=0; i<seq_len; ++i) {
         maxDistance += s.getSiteFrequencies()[i];
     }
     //Todo: Shouldn't this be totalFrequency, rather than
@@ -4650,7 +4662,7 @@ void PhyloTree::doNNI(const NNIMove &move, bool clearLH) {
     PhyloNeighbor* node21_it = node2->findNeighbor(node1); 
 
     // reorient partial_lh before swap
-    if (!isSuperTree()) {
+    if (params->compute_likelihood && !isSuperTree()) {
         reorientPartialLh(node12_it, node1);
         reorientPartialLh(node21_it, node2);
     }
@@ -4674,11 +4686,17 @@ void PhyloTree::doNNI(const NNIMove &move, bool clearLH) {
     PhyloNeighbor *nei21 = node2->findNeighbor(node1); // return neighbor of node2 which points to node 1
 
     if (clearLH) {
-        // clear partial likelihood vector
-        nei12->clearPartialLh();
-        nei21->clearPartialLh();
-        node2->clearReversePartialLh(node1);
-        node1->clearReversePartialLh(node2);
+        if (params->compute_likelihood) {
+            // clear partial likelihood vector
+            nei12->clearPartialLh();
+            nei21->clearPartialLh();
+            node2->clearReversePartialLh(node1);
+            node1->clearReversePartialLh(node2);
+        }
+        nei12->clearPartialParsimony();
+        nei21->clearPartialParsimony();
+        node2->clearReversePartialParsimony(node1);
+        node1->clearReversePartialParsimony(node2);
     }
 
     if (params->leastSquareNNI) {

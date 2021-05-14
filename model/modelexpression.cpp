@@ -42,7 +42,7 @@ namespace ModelExpression {
         }
         Expression* asBuiltIn(ModelInfoFromYAMLFile& mf,
                               const std::string& name) {
-            return new UnaryFunction(mf, functions[name]);
+            return new UnaryFunction(mf, name.c_str(), functions[name]);
         }
     } built_in_functions;
 
@@ -78,6 +78,10 @@ namespace ModelExpression {
         return (token_char == c);
     }
 
+    void Token::writeTextTo(std::stringstream &text) const {
+        text << token_char;
+    }
+
     Constant::Constant(ModelInfoFromYAMLFile& for_model,
                        double v) : super(for_model), value(v) {
     }
@@ -86,8 +90,16 @@ namespace ModelExpression {
         return value;
     }
 
+    void   Constant::writeTextTo(std::stringstream &text) const {
+        text << value;
+    }
+
     bool Constant::isConstant() const {
         return true;
+    }
+
+    Variable::Variable(ModelInfoFromYAMLFile& for_model) 
+        : super(for_model) {
     }
 
     Variable::Variable(ModelInfoFromYAMLFile& for_model,
@@ -106,6 +118,10 @@ namespace ModelExpression {
         return v;
     }
 
+    void Variable::writeTextTo(std::stringstream &text) const {
+        text << variable_name;
+    }
+
     bool Variable::isVariable() const {
         return true;
     }
@@ -114,9 +130,66 @@ namespace ModelExpression {
         return variable_name;
     }
 
+    ParameterSubscript::ParameterSubscript(ModelInfoFromYAMLFile& for_model,
+                                          const YAMLFileParameter* param,
+                                          Expression* expr) 
+        : super(for_model)
+        , parameter_to_subscript(param->name)
+        , subscript_expression(expr) {
+        if (!param->is_subscripted) {
+            delete expr;
+            std::stringstream complaint;
+            complaint << "Cannot subscript parameter " << param->name
+                      << " (it is not subscripted).";
+            throw ModelException(complaint.str());
+        }
+        std::stringstream long_name;
+        long_name <<  param->name + "(" ;
+        expr->writeTextTo(long_name);
+        long_name << ")";
+        variable_name = long_name.str();
+        //std::cout << "PS varname is " << variable_name << std::endl;
+    }
+
+    ParameterSubscript::~ParameterSubscript() {
+        delete subscript_expression;
+    }
+
+    double ParameterSubscript::evaluate() const {
+        return model.getVariableValue(getName());
+    }
+
+    std::string ParameterSubscript::getName() const {
+        const YAMLFileParameter* param 
+            = model.findParameter(parameter_to_subscript);
+        if (param==nullptr) {
+            std::stringstream complaint;
+            complaint << "Parameter " << parameter_to_subscript
+                      << ", not found.";
+            throw ModelException(complaint.str());
+        }
+        double x = subscript_expression->evaluate();
+        int    i = (int)floor(x);
+        int   lo = param->minimum_subscript;
+        int   hi = param->maximum_subscript;
+        if (x<lo || hi<x) {
+            std::stringstream complaint;
+            complaint << "Invalid subscript " << i
+                      << " for parameter " << param->name
+                      << ", for which the valid subscript range is " << lo 
+                      << " through " << hi << " inclusive.";
+            throw ModelException(complaint.str());
+        }
+        std::stringstream var_name_stream;
+        var_name_stream << param->name << "(" << i << ")";
+        return var_name_stream.str();
+    }
+
     UnaryFunction::UnaryFunction(ModelInfoFromYAMLFile& for_model,
+                                 const char* name,
                                  const UnaryFunctionImplementation* implementation)
-        : super(for_model), body(implementation), parameter(nullptr) {
+        : super(for_model), function_name(name)
+        , body(implementation), parameter(nullptr) {
     }
 
     void UnaryFunction::setParameter(Expression* param) {
@@ -126,6 +199,12 @@ namespace ModelExpression {
     double UnaryFunction::evaluate() const {
         double parameter_value = parameter->evaluate();
         return body->callFunction(model, parameter_value);
+    }
+
+    void   UnaryFunction::writeTextTo(std::stringstream &text) const {
+        text << function_name << "(";
+        parameter->writeTextTo(text);
+        text << ")";
     }
 
     bool   UnaryFunction::isFunction() const {
@@ -144,6 +223,15 @@ namespace ModelExpression {
     void InfixOperator::setOperands(Expression* left, Expression* right) {
         lhs = left;
         rhs = right;
+    }
+
+    void InfixOperator::writeInfixTextTo(const char* operator_text, 
+                                         std::stringstream& text) const {
+        text << "(";
+        lhs->writeTextTo(text);
+        text << ")" << operator_text << "(";
+        rhs->writeTextTo(text);
+        text << ")";
     }
 
     bool InfixOperator::isOperator() const {
@@ -165,6 +253,11 @@ namespace ModelExpression {
         double v2 = rhs->evaluate();
         return pow(v1, v2);
     }
+
+    void  Exponentiation::writeTextTo(std::stringstream &text) const {
+        writeInfixTextTo("^", text);
+    }
+
     int    Exponentiation::getPrecedence() const { return 12; }
 
     Multiplication::Multiplication(ModelInfoFromYAMLFile& for_model)
@@ -176,6 +269,10 @@ namespace ModelExpression {
         return v1 * v2;
     }
 
+    void  Multiplication::writeTextTo(std::stringstream &text) const {
+        writeInfixTextTo("*", text);
+    }
+
     int    Multiplication::getPrecedence() const { return 11; }
 
     Division::Division(ModelInfoFromYAMLFile& for_model )
@@ -183,6 +280,10 @@ namespace ModelExpression {
 
     double Division::evaluate() const {
         return lhs->evaluate() / rhs->evaluate();
+    }
+
+    void  Division::writeTextTo(std::stringstream &text) const {
+        writeInfixTextTo("/", text);
     }
 
     int    Division::getPrecedence() const { return 11; }
@@ -195,6 +296,11 @@ namespace ModelExpression {
         double v2 = rhs->evaluate();
         return v1 + v2;
     }
+
+    void  Addition::writeTextTo(std::stringstream &text) const {
+        writeInfixTextTo("+", text);
+    }
+
     int    Addition::getPrecedence() const { return 10; }
 
     Subtraction::Subtraction(ModelInfoFromYAMLFile& for_model )
@@ -204,6 +310,10 @@ namespace ModelExpression {
         return lhs->evaluate() - rhs->evaluate();
     }
 
+    void  Subtraction::writeTextTo(std::stringstream &text) const {
+        writeInfixTextTo("-", text);
+    }
+
     int Subtraction::getPrecedence() const { return 10; }
 
     Assignment::Assignment(ModelInfoFromYAMLFile& for_model )
@@ -211,12 +321,29 @@ namespace ModelExpression {
 
     double Assignment::evaluate() const {
         double eval = rhs->evaluate();
-        if (!lhs->isVariable()) {
+        if (lhs==nullptr || !lhs->isVariable()) {
             outError("Can only assign to variables");
         }
         Variable* v = dynamic_cast<ModelExpression::Variable*>(lhs);
         model.assign(v->getName(), eval);
+        //std::cout << "VSET: " << v->getName() << "=" << eval << std::endl;
         return eval;
+    }
+
+    void  Assignment::writeTextTo(std::stringstream &text) const {
+        if (lhs==nullptr || !lhs->isVariable()) {
+            text << "Invalid assignment ";
+            if (lhs==nullptr) {
+                text << "(null)";
+            } else {
+                lhs->writeTextTo(text);
+            }
+            text << "=";
+        } else {
+            Variable* v = dynamic_cast<ModelExpression::Variable*>(lhs);
+            text << v->getName() << "=";
+        }
+        rhs->writeTextTo(text);
     }
 
     bool Assignment::isAssignment() const {
@@ -259,6 +386,10 @@ namespace ModelExpression {
         return lhs->evaluate() < rhs->evaluate() ? 1.0 : 0.0;
     }
 
+    void  LessThanOperator::writeTextTo(std::stringstream &text) const {
+        writeInfixTextTo(" < ", text);
+    }
+
     GreaterThanOperator::GreaterThanOperator(ModelInfoFromYAMLFile& for_model)
         : super(for_model) {}
 
@@ -268,6 +399,10 @@ namespace ModelExpression {
 
     double GreaterThanOperator::evaluate()      const {
         return lhs->evaluate() > rhs->evaluate() ? 1.0 : 0.0;
+    }
+
+    void  GreaterThanOperator::writeTextTo(std::stringstream &text) const {
+        writeInfixTextTo(" > ", text);
     }
 
     EqualityOperator::EqualityOperator(ModelInfoFromYAMLFile& for_model)
@@ -281,6 +416,12 @@ namespace ModelExpression {
         return lhs->evaluate() == rhs->evaluate() ? 1.0 : 0.0;
     }
 
+    void  EqualityOperator::writeTextTo(std::stringstream &text) const {
+        lhs->writeTextTo(text);
+        text << "==";
+        rhs->writeTextTo(text);
+    }
+
     InequalityOperator::InequalityOperator(ModelInfoFromYAMLFile& for_model)
         : super(for_model) {}
 
@@ -290,6 +431,10 @@ namespace ModelExpression {
 
     double InequalityOperator::evaluate() const {
         return lhs->evaluate() != rhs->evaluate() ? 1.0 : 0.0;
+    }
+
+    void  InequalityOperator::writeTextTo(std::stringstream &text) const {
+        writeInfixTextTo("!=", text);
     }
 
     ShortcutAndOperator::ShortcutAndOperator(ModelInfoFromYAMLFile& for_model)
@@ -303,6 +448,10 @@ namespace ModelExpression {
         return ( lhs->evaluate() != 0 && rhs->evaluate() !=0 ) ? 1.0 : 0.0;
     }
 
+    void  ShortcutAndOperator::writeTextTo(std::stringstream &text) const {
+        writeInfixTextTo(" && ", text);
+    }
+
     ShortcutOrOperator::ShortcutOrOperator(ModelInfoFromYAMLFile& for_model)
         : super(for_model) {}
 
@@ -312,6 +461,10 @@ namespace ModelExpression {
 
     double ShortcutOrOperator::evaluate() const {
         return ( lhs->evaluate() != 0 || rhs->evaluate() !=0 ) ? 1.0 : 0.0;
+    }
+
+    void  ShortcutOrOperator::writeTextTo(std::stringstream &text) const {
+        writeInfixTextTo(" || ", text);
     }
 
     ListOperator::ListOperator(ModelInfoFromYAMLFile& for_model)
@@ -336,8 +489,16 @@ namespace ModelExpression {
         return v;
     }
 
+    void  ListOperator::writeTextTo(std::stringstream &text) const {
+        writeInfixTextTo(" : ", text);
+    }
+
     void   ListOperator::setOperands(Expression* left, Expression* right) {
-        if (left->isList()) {
+        //The precedence comparison ensures that 1 : 2 , 3 
+        //is treated as ( 1 : 2), 3, rather than as 4, 3, 5,
+        //and that (1, 2) : (3, 4) is not treated as 1 : 2 : (3, 4).
+        //
+        if (left->isList() && left->getPrecedence()==this->getPrecedence()) {
             ListOperator* old = dynamic_cast<ListOperator*>(left);
             std::swap(old->list_entries, list_entries);
             list_entries.push_back(right);
@@ -372,6 +533,21 @@ namespace ModelExpression {
 
         }
         return list_entries[index]->evaluate();
+    }
+
+    CommaOperator::CommaOperator(ModelInfoFromYAMLFile& for_model): super(for_model) {
+    }
+    
+    int CommaOperator::getPrecedence() const {
+        return 1;
+    }
+
+    void  CommaOperator::writeTextTo(std::stringstream &text) const {
+        //Doesn't use  writeInfixTextTo() because don't want
+        //parentheses around all of the entries in the list.
+        lhs->writeTextTo(text);
+        text << ", ";
+        rhs->writeTextTo(text);
     }
 
     SelectOperator::SelectOperator(ModelInfoFromYAMLFile& for_model)
@@ -419,6 +595,10 @@ namespace ModelExpression {
         }
     }
 
+    void   SelectOperator::writeTextTo(std::stringstream &text) const {
+        writeInfixTextTo(" ? ", text);
+    }
+
     RangeOperator::RangeOperator(ModelInfoFromYAMLFile& for_model)
         : super(for_model) {}
 
@@ -433,6 +613,14 @@ namespace ModelExpression {
         return (int)floor(rhs->evaluate());
     }
 
+    void   RangeOperator::writeTextTo(std::stringstream &text) const {
+        //Doesn't use  writeInfixTextTo() because don't want
+        //parentheses around the lower bound, or around the
+        //upper bound.
+        lhs->writeTextTo(text);
+        text << "..";
+        rhs->writeTextTo(text);
+    }
 
     InterpretedExpression::InterpretedExpression(ModelInfoFromYAMLFile& for_model,
                                                  const std::string& text): super(for_model) {
@@ -463,6 +651,23 @@ namespace ModelExpression {
         }
         bool topIsFunction() const {
             return (0<size() && back()->isFunction());
+        }
+    };
+
+    namespace {
+        void logExpressionAndValue(const char* prefix, Expression* expr) {
+            std::cout << prefix << ": ";
+            std::stringstream expr_text;
+            expr->writeTextTo(expr_text);
+            std::cout << expr_text.str();
+            try {
+                auto value =  expr->evaluate();
+                std::cout << " evaluated to " << value;
+            }
+            catch (ModelExpression::ModelException x) {
+                std::cout << " could not be evaluated (" << x.getMessage() << ")";
+            }
+            std::cout << std::endl;
         }
     };
 
@@ -531,7 +736,18 @@ namespace ModelExpression {
                 operand_stack << token;
             }
         }
-        ASSERT(operand_stack.size()==1);
+        if (operand_stack.size()!=1) {
+            std::stringstream complaint;
+            complaint << "Malformed expression appeared to be " 
+                      << operand_stack.size() << " space-separated expressions:";
+            int parameter_number = 1;
+            for (auto entry : operand_stack ) {
+                complaint << "\n" << parameter_number << " is: ";
+                entry->writeTextTo(complaint);
+                ++parameter_number;
+            }
+            throw ModelException(complaint.str());
+        }
         return operand_stack[0];
     }
 
@@ -565,14 +781,47 @@ namespace ModelExpression {
                 return true;
             }
             if (text[ix]=='(') {
-                //Subscripted
+                //Subscripted: Parse the subscript expression
                 size_t subscript_start = ix;
-                while (ix<text.size() && text[ix]!=')') {
-                    ++ix; //find closing bracket
-                }
-                if (ix<text.size()) {
-                    ++ix; //skip over closing bracket
-                    var_name += text.substr(subscript_start, ix-subscript_start);
+                size_t text_length = text.length();
+                int    bracket_depth = 0;
+                do {
+                    auto ch = text[ix];
+                    if      (ch==')')  --bracket_depth;
+                    else if (ch=='(')  ++bracket_depth;
+                    ++ix;
+                } while (ix<text_length && 0<bracket_depth);
+                //ix = index of first character after the closing bracket.
+                std::string subscript_expr;
+                if (bracket_depth==0) {
+                    subscript_expr = text.substr(subscript_start+1, ix-subscript_start-2);
+                    if (is_string_all_digits(subscript_expr)) {
+                        //std::cout << "VS expr: " << subscript_expr << std::endl;
+                        var_name = var_name + "(" + subscript_expr + ")";
+                    } else {
+                        //Oh, boy.  Subscript expression!
+                        InterpretedExpression x(model, subscript_expr);
+                        var_name = string_to_lower(var_name);
+                        const YAMLFileParameter* param = model.findParameter(var_name) ;
+                        if (param == nullptr ) {
+                            std::stringstream complaint;
+                            complaint << "Subscripted parameter " << var_name
+                                      << " not defined, for model " << model.getLongName();
+                            throw ModelException(complaint.str());
+                        }
+                        //std::cout << "PS expr: " << subscript_expr << std::endl;
+                        expr = new ParameterSubscript(model, param, x.detatchExpression());
+                        if (false) {
+                            logExpressionAndValue("PS", expr);
+                        }
+                        return true;
+                    }
+                } else {
+                    std::stringstream complaint;
+                    complaint << "Subscripted reference for " << var_name
+                              << " for model " << model.getLongName()
+                              << " was not terminated by a closing bracket:\n" << text;
+                    throw ModelException(complaint.str());
                 }
             }
             expr = new Variable(model, var_name);
@@ -599,7 +848,7 @@ namespace ModelExpression {
                           expr = new InequalityOperator(model);
                           ++ix;
                       } else {
-                          throw new ModelException("unary not (!) operator not supported");
+                          throw ModelException("unary not (!) operator not supported");
                       }
                       break;
             case '^': expr = new Exponentiation(model); break;
@@ -620,14 +869,14 @@ namespace ModelExpression {
                           expr = new ShortcutAndOperator(model);
                           ++ix;
                       } else {
-                          throw new ModelException("bitwise-and & operator not supported");
+                          throw ModelException("bitwise-and & operator not supported");
                       }
                       break;
             case '|': if (nextch=='|') {
                           expr = new ShortcutOrOperator(model);
                           ++ix;
                       } else {
-                            throw new ModelException("bitwise-or | operator not supported");
+                            throw ModelException("bitwise-or | operator not supported");
                       }
                       break;
             case ':': expr = new ListOperator(model);   break;
@@ -636,10 +885,11 @@ namespace ModelExpression {
                           expr = new RangeOperator(model);
                           ++ix;
                       } else {
-                          throw new ModelException("period that wasn't part of .. or a number,"
+                          throw ModelException("period that wasn't part of .. or a number,"
                                                    " was not understood");
                       }
                       break;
+            case ',': expr = new CommaOperator(model); break;
             default:
                 throw ModelException(std::string("unrecognized character '") +
                                      std::string(1, ch) + "'' in expression");
@@ -662,7 +912,18 @@ namespace ModelExpression {
         return root->evaluate();
     }
 
+    void InterpretedExpression::writeTextTo(std::stringstream &text) const {
+        root->writeTextTo(text);
+    }
+
     Expression* InterpretedExpression::expression() const {
         return root;
+    }
+
+    Expression* InterpretedExpression::detatchExpression()  {
+        //Note: This yields ownership
+        Expression* expr = root;
+        root = nullptr;
+        return expr;
     }
 }

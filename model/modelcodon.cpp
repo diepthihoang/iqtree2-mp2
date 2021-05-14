@@ -224,12 +224,7 @@ CCG CAT CAC CAA CAG CGT CGC CGA CGG ATT ATC ATA ATG ACT ACC ACA ACG AAT AAC AAA 
 AAG AGT AGC AGA AGG GTT GTC GTA GTG GCT GCC GCA GCG GAT GAC GAA GAG GGT GGC GGA \
 GGG";
 
-
-ModelCodon::ModelCodon(const char *model_name, string model_params,
-                       StateFreqType freq, string freq_params,
-                       PhyloTree *tree, PhyloTree* report_to_tree)
-    : ModelMarkov(tree, report_to_tree)
-{
+void ModelCodon::setDefaults() {
     half_matrix = false;
     omega = kappa = kappa2 = 1.0;
     fix_omega = fix_kappa = false;
@@ -245,6 +240,19 @@ ModelCodon::ModelCodon(const char *model_name, string model_params,
 
     rate_attr = NULL;
     computeRateAttributes();
+}
+
+ModelCodon::ModelCodon(PhyloTree *tree, PhyloTree* report_to_tree) 
+    : ModelMarkov(tree, report_to_tree) {
+    setDefaults();
+}
+
+ModelCodon::ModelCodon(const char *model_name, string model_params,
+                       StateFreqType freq, string freq_params,
+                       PhyloTree *tree, PhyloTree* report_to_tree)
+    : ModelMarkov(tree, report_to_tree)
+{
+    setDefaults();
 
    	init(model_name, model_params, freq, freq_params, report_to_tree);
 }
@@ -292,10 +300,7 @@ void ModelCodon::restoreCheckpoint() {
 }
 
 StateFreqType ModelCodon::initCodon(const char *model_name, StateFreqType freq, bool reset_params) {
-	string name_upper = model_name;
-	for (string::iterator it = name_upper.begin(); it != name_upper.end(); it++)
-		(*it) = toupper(*it);
-    
+	string name_upper = string_to_upper(model_name);
 	if (name_upper == "MG") {
 		return initMG94(true, freq, CK_ONE_KAPPA);
 	} else if (name_upper == "MGK") {
@@ -331,14 +336,10 @@ StateFreqType ModelCodon::initCodon(const char *model_name, StateFreqType freq, 
 			outError("For ECMS05 a standard genetic code must be used");
 		readCodonModel(model_ECM_Schneider05, reset_params);
 		return StateFreqType::FREQ_USER_DEFINED;
-	} else {
-		//cout << "User-specified model "<< model_name << endl;
-		//readParameters(model_name);
-			//name += " (user-defined)";
+	} else if (!name_upper.empty()) {
         readCodonModelFile(model_name, reset_params);
 		return StateFreqType::FREQ_USER_DEFINED;
 	}
-
 	return StateFreqType::FREQ_UNKNOWN;
 }
 

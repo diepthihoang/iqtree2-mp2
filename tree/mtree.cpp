@@ -1005,8 +1005,6 @@ void MTree::getTaxa(NodeVector &taxa, Node *node, Node *dad) const {
     if (node->isLeaf()) {
         taxa.push_back(node);
     }
-    //for (NeighborVec::iterator it = node->neighbors.begin(); it != node->neighbors.end(); it++)
-    //if ((*it)->node != dad)	{
     FOR_NEIGHBOR_IT(node, dad, it) {
         getTaxa(taxa, (*it)->node, node);
     }
@@ -1679,15 +1677,22 @@ bool MTree::isRootLeaf(Node* node) {
 
 int MTree::freeNode(Node *node, Node *dad)
 {
-	if ( root == NULL )
+ 	if ( root == NULL ) {
 		return 0;
-    if (!node) node = root;
+    }
+    if (!node) {
+        node = root;
+    }
     NeighborVec::reverse_iterator it;
     int num_nodes = 1;
-    for (it = node->neighbors.rbegin(); it != node->neighbors.rend(); it++) {
+    for (it = node->neighbors.rbegin(); 
+         it != node->neighbors.rend(); it++) {
         if ((*it)->node != dad) {
             num_nodes += freeNode((*it)->node, node);
         }
+    }
+    if ( node == root ) {
+        root = nullptr;
     }
     delete node;
     return num_nodes;
